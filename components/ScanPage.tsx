@@ -2,15 +2,13 @@ import React, { useState, useEffect, useRef, useCallback, FormEvent } from 'reac
 import { fetchCompanies, addShipment } from '../services/api';
 import { ShippingCompany, ScanResult, Page } from '../types';
 
-const ScanFeedback: React.FC<{ result: ScanResult | null; error: string | null; onClear: () => void }> = ({ result, error, onClear }) => {
+const ScanFeedback: React.FC<{ result: ScanResult | null; error: string | null; onClear: () => void; isVisible: boolean }> = ({ result, error, onClear, isVisible }) => {
   useEffect(() => {
-    if (result || error) {
+    if (isVisible) {
       const timer = setTimeout(onClear, 3000);
       return () => clearTimeout(timer);
     }
-  }, [result, error, onClear]);
-
-  if (!result && !error) return null;
+  }, [isVisible, onClear]);
 
   const isDuplicate = result?.is_duplicate;
   const bgColor = error ? 'bg-red-100' : isDuplicate ? 'bg-yellow-100' : 'bg-green-100';
@@ -20,7 +18,11 @@ const ScanFeedback: React.FC<{ result: ScanResult | null; error: string | null; 
   const message = error || `تم مسح الباركود ${result?.barcode}.`;
 
   return (
-    <div className={`fixed top-5 left-5 p-4 border-r-4 rounded-md shadow-lg ${bgColor} ${borderColor} ${textColor}`} role="alert">
+    <div 
+      className={`fixed bottom-20 left-4 right-4 p-4 border-r-4 rounded-md shadow-lg z-50 transform transition-all duration-300 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`} 
+      role="alert"
+      style={{ pointerEvents: isVisible ? 'auto' : 'none' }}
+    >
       <p className="font-bold">{title}</p>
       <p>{message}</p>
     </div>
@@ -68,7 +70,7 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
     setError(null);
     try {
       const result = await addShipment(barcode, Number(selectedCompany));
-      const scanTime = new Date().toLocaleTimeString('ar-EG');
+      const scanTime = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const companyName = result.company_name || companies.find(c => c.id === result.company_id)?.name || 'غير معروف';
       
       const scanResult: ScanResult = { ...result, scan_time: scanTime, company_name: companyName };
@@ -81,6 +83,7 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
       } else {
         setError('فشل تسجيل المسح. يرجى المحاولة مرة أخرى.');
       }
+      setLastResult(null);
     } finally {
       setBarcode('');
       setIsLoading(false);
@@ -94,20 +97,21 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
   }, []);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <ScanFeedback result={lastResult} error={error} onClear={clearFeedback} />
-      <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow-lg">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">مسح شحنة</h2>
-        <form onSubmit={handleScan} className="space-y-6">
+    <div className="space-y-6">
+      <ScanFeedback result={lastResult} error={error} onClear={clearFeedback} isVisible={!!lastResult || !!error} />
+      
+      <div className="bg-white p-4 rounded-lg shadow-md">
+        <h2 className="text-xl font-bold text-gray-800 mb-4">مسح شحنة</h2>
+        <form onSubmit={handleScan} className="space-y-4">
           <div>
-            <label htmlFor="company" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="company" className="block text-md font-medium text-gray-700 mb-1">
               شركة الشحن
             </label>
             <select
               id="company"
               value={selectedCompany}
               onChange={(e) => setSelectedCompany(e.target.value)}
-              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md"
+              className="mt-1 block w-full p-3 text-lg border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 rounded-md"
             >
               {companies.map((company) => (
                 <option key={company.id} value={company.id}>
@@ -117,7 +121,7 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
             </select>
           </div>
           <div>
-            <label htmlFor="barcode" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="barcode" className="block text-md font-medium text-gray-700 mb-1">
               الباركود
             </label>
             <input
@@ -127,51 +131,43 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}
               placeholder="امسح الباركود هنا..."
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 text-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
               disabled={isLoading}
             />
           </div>
           <button
             type="submit"
             disabled={isLoading || !barcode}
-            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-gray-400"
+            className="w-full flex justify-center py-4 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-gray-400"
           >
             {isLoading ? 'جاري المسح...' : 'إرسال يدوي'}
           </button>
         </form>
          <button
             onClick={() => navigate(Page.STATS)}
-            className="mt-4 w-full flex justify-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            className="mt-4 w-full flex justify-center py-4 px-4 border border-gray-300 rounded-md shadow-sm text-lg font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
           >
             إنهاء اليوم وعرض الإحصائيات
           </button>
       </div>
 
-      <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-lg">
+      <div className="bg-white p-4 rounded-lg shadow-md">
         <h3 className="text-xl font-bold text-gray-800 mb-4">عمليات المسح اليوم ({todaysScans.length})</h3>
-        <div className="overflow-y-auto h-96 border rounded-lg no-scrollbar">
+        <div className="space-y-3 max-h-[50vh] overflow-y-auto no-scrollbar">
           {todaysScans.length === 0 ? (
-             <div className="flex items-center justify-center h-full">
+             <div className="flex items-center justify-center h-24">
                 <p className="text-gray-500">لا توجد عمليات مسح لليوم بعد.</p>
             </div>
           ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 sticky top-0">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الوقت</th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الباركود</th>
-                <th scope="col"className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الشركة</th>
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الحالة</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {todaysScans.map((scan, index) => (
-                <tr key={`${scan.id}-${index}`} className={scan.is_duplicate ? 'bg-yellow-50' : ''}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{scan.scan_time}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{scan.barcode}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{scan.company_name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {scan.is_duplicate ? (
+            todaysScans.map((scan, index) => (
+              <div key={`${scan.id}-${index}`} className={`p-3 rounded-lg border-r-4 ${scan.is_duplicate ? 'bg-yellow-50 border-yellow-400' : 'bg-green-50 border-green-400'}`}>
+                <div className="flex justify-between items-center">
+                  <p className="text-md font-bold text-gray-900">{scan.barcode}</p>
+                  <p className="text-sm text-gray-500">{scan.scan_time}</p>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <p className="text-sm text-gray-600">{scan.company_name}</p>
+                   {scan.is_duplicate ? (
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
                         مكرر
                       </span>
@@ -180,11 +176,9 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
                         ناجح
                       </span>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                </div>
+              </div>
+            ))
           )}
         </div>
       </div>
