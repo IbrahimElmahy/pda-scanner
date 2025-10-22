@@ -1,121 +1,94 @@
-import { ShippingCompany, Shipment } from '../types';
+import { ShippingCompany, Shipment, StatsData } from '../types';
 
-const BASE_URL = 'https://zabda-al-tajamil.com/shipment_tracking/api';
+const API_BASE_URL = 'https://zabda-al-tajamil.com/shipment_tracking/api';
 
-// Helper to handle API responses and errors
-async function handleResponse<T>(response: Response): Promise<T> {
+// A helper function to handle API requests
+async function apiFetch(endpoint: string, options: RequestInit = {}) {
+  const url = `${API_BASE_URL}/${endpoint}`;
+  
+  const defaultHeaders = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+
+  const config: RequestInit = {
+    ...options,
+    headers: {
+      ...defaultHeaders,
+      ...options.headers,
+    },
+  };
+
+  const response = await fetch(url, config);
+
   if (!response.ok) {
-    try {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `خطأ من الخادم: ${response.status}`);
-    } catch (e) {
-      throw new Error(`خطأ في الشبكة: ${response.status}`);
-    }
+    const errorText = await response.text();
+    throw new Error(`Network response was not ok: ${response.statusText} - ${errorText}`);
   }
-  return response.json();
+  
+  const data = await response.json();
+
+  if (data.success === false) {
+      throw new Error(data.message || 'An API error occurred');
+  }
+
+  return data;
 }
 
-export const fetchCompanies = async (activeOnly = false): Promise<ShippingCompany[]> => {
-  const response = await fetch(`${BASE_URL}/getCompanies.php`);
-  const data = await handleResponse<any[]>(response);
-  
-  let companies: ShippingCompany[] = data.map(c => ({
-    id: Number(c.id),
-    name: c.name,
-    is_active: c.is_active === '1' || c.is_active === true,
-  }));
 
+export const fetchCompanies = async (activeOnly = false): Promise<ShippingCompany[]> => {
+  const data = await apiFetch('getCompanies.php');
+  let companies: ShippingCompany[] = data.companies.map((c: any) => ({
+      ...c,
+      is_active: c.is_active == 1,
+  }));
   if (activeOnly) {
     return companies.filter(c => c.is_active);
   }
   return companies;
 };
 
-export const scanBarcode = async (barcode: string, company_id: number): Promise<Shipment> => {
-  const formData = new FormData();
-  formData.append('barcode', barcode);
-  formData.append('company_id', String(company_id));
-
-  const response = await fetch(`${BASE_URL}/addShipment.php`, {
-    method: 'POST',
-    body: formData,
-  });
-
-  const result = await handleResponse<any>(response);
-
-  return {
-    id: Number(result.id),
-    barcode: result.barcode,
-    company_id: Number(result.company_id),
-    date: result.date,
-    is_duplicate: result.is_duplicate === '1' || result.is_duplicate === true,
-  };
+export const addShipment = async (barcode: string, company_id: number): Promise<Shipment> => {
+    const today = new Date().toISOString().split('T')[0];
+    const response = await apiFetch('addShipment.php', {
+        method: 'POST',
+        body: JSON.stringify({
+            barcode,
+            company_id,
+            scan_date: today,
+        }),
+    });
+    // The component expects `is_duplicate`. The API docs for addShipment don't provide it.
+    // We pass the raw shipment object; the component should handle a potentially missing `is_duplicate`.
+    return { ...response.shipment, date: response.shipment.scan_date };
 };
 
-export const fetchShipments = async (filters: { date?: string; companyId?: number; searchQuery?: string }): Promise<Shipment[]> => {
+export const fetchStats = async (filters: { date?: string; companyId?: number }): Promise<StatsData> => {
     const params = new URLSearchParams();
-    if (filters.date) params.append('date', filters.date);
-    if (filters.companyId) params.append('company_id', String(filters.companyId));
-    if (filters.searchQuery) params.append('search', filters.searchQuery);
-    
-    const [shipmentsData, companies] = await Promise.all([
-        fetch(`${BASE_URL}/getStats.php?${params.toString()}`).then(res => handleResponse<any[]>(res)),
-        fetchCompanies() // Fetch all companies to map names
-    ]);
-
-    if (!Array.isArray(shipmentsData)) {
-      console.error("Received non-array data for shipments:", shipmentsData);
-      return [];
+    if (filters.date) {
+        params.append('date', filters.date);
     }
-
-    return shipmentsData.map(s => ({
-        id: Number(s.id),
-        barcode: s.barcode,
-        company_id: Number(s.company_id),
-        date: s.date,
-        is_duplicate: s.is_duplicate === '1' || s.is_duplicate === true,
-        company_name: companies.find(c => c.id === Number(s.company_id))?.name || 'غير معروف',
-    }));
+    if (filters.companyId) {
+        params.append('company_id', String(filters.companyId));
+    }
+    const data = await apiFetch(`getStats.php?${params.toString()}`);
+    return {
+        statistics: data.statistics,
+        shipments: data.shipments,
+    };
 };
 
 export const addCompany = async (name: string): Promise<ShippingCompany> => {
-    const formData = new FormData();
-    formData.append('name', name);
-
-    const response = await fetch(`${BASE_URL}/addCompany.php`, {
+    const response = await apiFetch('addCompany.php', {
         method: 'POST',
-        body: formData,
+        body: JSON.stringify({ name }),
     });
-    
-    const result = await handleResponse<any>(response);
-    
-    return {
-        id: Number(result.id),
-        name: result.name,
-        is_active: result.is_active === '1' || result.is_active === true,
-    };
+    return { ...response.company, is_active: response.company.is_active == 1 };
 };
 
-// ملاحظة: لم يتم توفير رابط API لتحديث الشركة.
-// تم افتراض وجود رابط `updateCompany.php` يقبل `id` و `is_active`.
-export const updateCompany = async (id: number, updates: Partial<Pick<ShippingCompany, 'is_active'>>): Promise<ShippingCompany> => {
-    const formData = new FormData();
-    formData.append('id', String(id));
-    
-    if (updates.is_active !== undefined) {
-      formData.append('is_active', updates.is_active ? '1' : '0');
-    }
-
-    const response = await fetch(`${BASE_URL}/updateCompany.php`, {
+export const toggleCompanyStatus = async (company_id: number, is_active: boolean): Promise<any> => {
+    return apiFetch('toggleCompany.php', {
         method: 'POST',
-        body: formData,
+        body: JSON.stringify({ company_id, is_active }),
     });
-
-    const result = await handleResponse<any>(response);
-
-    return {
-        id: Number(result.id),
-        name: result.name,
-        is_active: result.is_active === '1' || result.is_active === true,
-    };
 };

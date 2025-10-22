@@ -1,22 +1,44 @@
-
 export interface ShippingCompany {
   id: number;
   name: string;
-  is_active: boolean;
+  is_active: boolean | number; // API might return 1/0
 }
 
+// Represents the object returned when a new shipment is added
 export interface Shipment {
   id: number;
   barcode: string;
   company_id: number;
-  company_name?: string; // Optional, to be joined for display
-  date: string; // YYYY-MM-DD
-  is_duplicate: boolean;
+  company_name?: string;
+  scan_date?: string; // API returns this as `date`
+  date?: string; // To match existing usage
+  is_duplicate?: boolean; // This might not be returned from addShipment, handle gracefully
 }
 
+// Represents an item in the local list of scans on the ScanPage
 export interface ScanResult extends Shipment {
   scan_time: string; // HH:mm:ss
 }
+
+// Represents a shipment row in the statistics table
+export interface ShipmentStat {
+    barcode: string;
+    company_name: string;
+    scan_count: number;
+    first_scan: string;
+    last_scan: string;
+}
+
+// Represents the full data structure from getStats.php
+export interface StatsData {
+    statistics: {
+        total_unique_shipments: number;
+        total_scans: number;
+        duplicate_count: number;
+    };
+    shipments: ShipmentStat[];
+}
+
 
 export enum Page {
   SCAN = 'scan',

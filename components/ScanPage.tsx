@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, FormEvent } from 'react';
-import { fetchCompanies, scanBarcode } from '../services/api';
+import { fetchCompanies, addShipment } from '../services/api';
 import { ShippingCompany, ScanResult, Page } from '../types';
 
 const ScanFeedback: React.FC<{ result: ScanResult | null; error: string | null; onClear: () => void }> = ({ result, error, onClear }) => {
@@ -67,15 +67,20 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
     setIsLoading(true);
     setError(null);
     try {
-      const result = await scanBarcode(barcode, Number(selectedCompany));
+      const result = await addShipment(barcode, Number(selectedCompany));
       const scanTime = new Date().toLocaleTimeString('ar-EG');
-      const companyName = companies.find(c => c.id === result.company_id)?.name || 'غير معروف';
+      const companyName = result.company_name || companies.find(c => c.id === result.company_id)?.name || 'غير معروف';
+      
       const scanResult: ScanResult = { ...result, scan_time: scanTime, company_name: companyName };
       
       setTodaysScans(prevScans => [scanResult, ...prevScans]);
       setLastResult(scanResult);
     } catch (err) {
-      setError('فشل تسجيل المسح. يرجى المحاولة مرة أخرى.');
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('فشل تسجيل المسح. يرجى المحاولة مرة أخرى.');
+      }
     } finally {
       setBarcode('');
       setIsLoading(false);
@@ -160,8 +165,8 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {todaysScans.map((scan) => (
-                <tr key={scan.id} className={scan.is_duplicate ? 'bg-yellow-50' : ''}>
+              {todaysScans.map((scan, index) => (
+                <tr key={`${scan.id}-${index}`} className={scan.is_duplicate ? 'bg-yellow-50' : ''}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{scan.scan_time}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{scan.barcode}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{scan.company_name}</td>

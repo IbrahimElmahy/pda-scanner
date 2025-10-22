@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { fetchCompanies, addCompany, updateCompany } from '../services/api';
+import { fetchCompanies, addCompany, toggleCompanyStatus } from '../services/api';
 import { ShippingCompany } from '../types';
 
 const CompaniesPage: React.FC = () => {
@@ -37,11 +37,7 @@ const CompaniesPage: React.FC = () => {
             await loadCompanies(); // Refresh the list
         } catch (err) {
             if (err instanceof Error) {
-                if (err.message.includes("already exists")) {
-                    setError("اسم الشركة موجود بالفعل.");
-                } else {
-                    setError(err.message);
-                }
+                setError(err.message || "حدث خطأ أثناء إضافة الشركة.");
             } else {
                 setError("حدث خطأ غير معروف أثناء إضافة الشركة.");
             }
@@ -52,7 +48,7 @@ const CompaniesPage: React.FC = () => {
     
     const handleToggleStatus = async (company: ShippingCompany) => {
         try {
-            await updateCompany(company.id, { is_active: !company.is_active });
+            await toggleCompanyStatus(company.id, !company.is_active);
             await loadCompanies(); // Refresh list
         } catch(err) {
             setError("فشل تحديث حالة الشركة.");
@@ -72,7 +68,10 @@ const CompaniesPage: React.FC = () => {
                         <input
                             type="text"
                             value={newCompanyName}
-                            onChange={(e) => setNewCompanyName(e.target.value)}
+                            onChange={(e) => {
+                                setNewCompanyName(e.target.value);
+                                setError(null); // Clear error on new input
+                            }}
                             placeholder="أدخل اسم الشركة الجديدة"
                             className="w-full form-input rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
                             disabled={isAdding}
