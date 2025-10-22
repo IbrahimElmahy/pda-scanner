@@ -1,97 +1,121 @@
-
 import { ShippingCompany, Shipment } from '../types';
 
-// --- Mock Database ---
-let companies: ShippingCompany[] = [
-  { id: 1, name: 'Aramex', is_active: true },
-  { id: 2, name: 'SMSA', is_active: true },
-  { id: 3, name: 'DHL', is_active: false },
-  { id: 4, name: 'FedEx', is_active: true },
-];
+const BASE_URL = 'https://zabda-al-tajamil.com/shipment_tracking/api';
 
-let shipments: Shipment[] = [
-  { id: 101, barcode: '123456789012', company_id: 1, date: '2024-07-21', is_duplicate: false },
-  { id: 102, barcode: '987654321098', company_id: 2, date: '2024-07-21', is_duplicate: false },
-  { id: 103, barcode: '123456789012', company_id: 1, date: '2024-07-21', is_duplicate: true },
-  { id: 104, barcode: '555555555555', company_id: 4, date: '2024-07-20', is_duplicate: false },
-];
-
-let nextCompanyId = 5;
-let nextShipmentId = 105;
-
-const getTodayDateString = () => new Date().toISOString().split('T')[0];
-
-// --- Mock API Functions ---
-
-// Simulate network delay
-const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+// Helper to handle API responses and errors
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    try {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `خطأ من الخادم: ${response.status}`);
+    } catch (e) {
+      throw new Error(`خطأ في الشبكة: ${response.status}`);
+    }
+  }
+  return response.json();
+}
 
 export const fetchCompanies = async (activeOnly = false): Promise<ShippingCompany[]> => {
-  await delay(300);
+  const response = await fetch(`${BASE_URL}/getCompanies.php`);
+  const data = await handleResponse<any[]>(response);
+  
+  let companies: ShippingCompany[] = data.map(c => ({
+    id: Number(c.id),
+    name: c.name,
+    is_active: c.is_active === '1' || c.is_active === true,
+  }));
+
   if (activeOnly) {
     return companies.filter(c => c.is_active);
   }
-  return [...companies];
+  return companies;
 };
 
 export const scanBarcode = async (barcode: string, company_id: number): Promise<Shipment> => {
-  await delay(200);
-  const today = getTodayDateString();
-  const isDuplicate = shipments.some(s => s.barcode === barcode && s.date === today);
+  const formData = new FormData();
+  formData.append('barcode', barcode);
+  formData.append('company_id', String(company_id));
 
-  const newShipment: Shipment = {
-    id: nextShipmentId++,
-    barcode,
-    company_id,
-    date: today,
-    is_duplicate: isDuplicate,
+  const response = await fetch(`${BASE_URL}/addShipment.php`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  const result = await handleResponse<any>(response);
+
+  return {
+    id: Number(result.id),
+    barcode: result.barcode,
+    company_id: Number(result.company_id),
+    date: result.date,
+    is_duplicate: result.is_duplicate === '1' || result.is_duplicate === true,
   };
-  shipments.push(newShipment);
-  return newShipment;
 };
 
 export const fetchShipments = async (filters: { date?: string; companyId?: number; searchQuery?: string }): Promise<Shipment[]> => {
-  await delay(500);
-  let filteredShipments = [...shipments];
+    const params = new URLSearchParams();
+    if (filters.date) params.append('date', filters.date);
+    if (filters.companyId) params.append('company_id', String(filters.companyId));
+    if (filters.searchQuery) params.append('search', filters.searchQuery);
+    
+    const [shipmentsData, companies] = await Promise.all([
+        fetch(`${BASE_URL}/getStats.php?${params.toString()}`).then(res => handleResponse<any[]>(res)),
+        fetchCompanies() // Fetch all companies to map names
+    ]);
 
-  if (filters.date) {
-    filteredShipments = filteredShipments.filter(s => s.date === filters.date);
-  }
-  if (filters.companyId) {
-    filteredShipments = filteredShipments.filter(s => s.company_id === filters.companyId);
-  }
-  if (filters.searchQuery) {
-    const query = filters.searchQuery.toLowerCase();
-    filteredShipments = filteredShipments.filter(s => s.barcode.toLowerCase().includes(query));
-  }
-  
-  // Join company name for display
-  return filteredShipments.map(s => ({
-      ...s,
-      company_name: companies.find(c => c.id === s.company_id)?.name || 'Unknown',
-  })).sort((a,b) => b.id - a.id);
+    if (!Array.isArray(shipmentsData)) {
+      console.error("Received non-array data for shipments:", shipmentsData);
+      return [];
+    }
+
+    return shipmentsData.map(s => ({
+        id: Number(s.id),
+        barcode: s.barcode,
+        company_id: Number(s.company_id),
+        date: s.date,
+        is_duplicate: s.is_duplicate === '1' || s.is_duplicate === true,
+        company_name: companies.find(c => c.id === Number(s.company_id))?.name || 'غير معروف',
+    }));
 };
 
 export const addCompany = async (name: string): Promise<ShippingCompany> => {
-    await delay(400);
-    if (companies.some(c => c.name.toLowerCase() === name.toLowerCase())) {
-        throw new Error("Company name already exists.");
-    }
-    const newCompany: ShippingCompany = {
-        id: nextCompanyId++,
-        name,
-        is_active: true,
+    const formData = new FormData();
+    formData.append('name', name);
+
+    const response = await fetch(`${BASE_URL}/addCompany.php`, {
+        method: 'POST',
+        body: formData,
+    });
+    
+    const result = await handleResponse<any>(response);
+    
+    return {
+        id: Number(result.id),
+        name: result.name,
+        is_active: result.is_active === '1' || result.is_active === true,
     };
-    companies.push(newCompany);
-    return newCompany;
 };
 
-export const updateCompany = async (id: number, updates: Partial<Pick<ShippingCompany, 'name' | 'is_active'>>): Promise<ShippingCompany> => {
-    await delay(300);
-    const companyIndex = companies.findIndex(c => c.id === id);
-    if (companyIndex === -1) {
-        throw new Error("Company not found.");
+// ملاحظة: لم يتم توفير رابط API لتحديث الشركة.
+// تم افتراض وجود رابط `updateCompany.php` يقبل `id` و `is_active`.
+export const updateCompany = async (id: number, updates: Partial<Pick<ShippingCompany, 'is_active'>>): Promise<ShippingCompany> => {
+    const formData = new FormData();
+    formData.append('id', String(id));
+    
+    if (updates.is_active !== undefined) {
+      formData.append('is_active', updates.is_active ? '1' : '0');
     }
-    companies[companyIndex] = { ...companies[companyIndex], ...updates };
-    return companies[companyIndex];
+
+    const response = await fetch(`${BASE_URL}/updateCompany.php`, {
+        method: 'POST',
+        body: formData,
+    });
+
+    const result = await handleResponse<any>(response);
+
+    return {
+        id: Number(result.id),
+        name: result.name,
+        is_active: result.is_active === '1' || result.is_active === true,
+    };
 };
