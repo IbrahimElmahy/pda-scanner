@@ -38,6 +38,7 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const scanTimeoutRef = useRef<number | null>(null);
 
   const playBeep = useCallback((success: boolean) => {
     if (!audioContextRef.current) {
@@ -91,48 +92,95 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
     barcodeInputRef.current?.focus();
   }, []);
 
-  const handleScan = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!barcode.trim() || !selectedCompany) {
-      setError('يرجى اختيار شركة ومسح باركود.');
-      playBeep(false);
-      return;
+  const submitBarcode = useCallback(async (scannedBarcode: string) => {
+    if (scanTimeoutRef.current) {
+        clearTimeout(scanTimeoutRef.current);
     }
+    if (!scannedBarcode || !selectedCompany) {
+        setError('يرجى اختيار شركة ومسح باركود.');
+        playBeep(false);
+        return;
+    }
+
+    // Don't process if already loading
+    if (isLoading) return;
+
     setIsLoading(true);
     setError(null);
-    try {
-      const result = await addShipment(barcode, Number(selectedCompany));
-      playBeep(true);
-      const scanTime = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const companyName = result.company_name || companies.find(c => c.id === result.company_id)?.name || 'غير معروف';
-      
-      const isDuplicateInList = todaysScans.some(scan => scan.barcode === result.barcode);
+    setBarcode(''); // Clear input immediately
 
-      const scanResult: ScanResult = { 
-        ...result, 
-        scan_time: scanTime, 
-        company_name: companyName,
-        is_duplicate: isDuplicateInList 
-      };
-      
-      setLastResult(scanResult);
+    const scanTime = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const existingScanIndex = todaysScans.findIndex(scan => scan.barcode === scannedBarcode);
 
-      if (!isDuplicateInList) {
-        setTodaysScans(prevScans => [scanResult, ...prevScans]);
-      }
+    if (existingScanIndex > -1) {
+        // DUPLICATE SCAN (CARTON) - Update UI immediately
+        playBeep(true);
+        const updatedScans = [...todaysScans];
+        const existingScan = updatedScans.splice(existingScanIndex, 1)[0];
+        const updatedScanItem: ScanResult = {
+            ...existingScan,
+            scan_count: existingScan.scan_count + 1,
+            scan_time: scanTime,
+        };
+        setLastResult({ ...updatedScanItem, is_duplicate: true });
+        setTodaysScans([updatedScanItem, ...updatedScans]);
+        
+        // Call API in the background to log the scan for stats
+        addShipment(scannedBarcode, Number(selectedCompany)).catch(err => {
+            console.error("Failed to log duplicate scan:", err);
+            // Optionally show a non-blocking error
+        }).finally(() => {
+            setIsLoading(false);
+            barcodeInputRef.current?.focus();
+        });
+    } else {
+        // NEW SCAN
+        try {
+            const result = await addShipment(scannedBarcode, Number(selectedCompany));
+            playBeep(true);
+            const companyName = result.company_name || companies.find(c => c.id === result.company_id)?.name || 'غير معروف';
+            const newScanResult: ScanResult = { 
+                ...result, 
+                scan_time: scanTime, 
+                company_name: companyName,
+                scan_count: 1,
+            };
+            setLastResult({ ...newScanResult, is_duplicate: false });
+            setTodaysScans(prevScans => [newScanResult, ...prevScans]);
+        } catch (err) {
+            playBeep(false);
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError('فشل تسجيل المسح. يرجى المحاولة مرة أخرى.');
+            }
+            setLastResult(null);
+            setBarcode(scannedBarcode); // Put barcode back on error
+        } finally {
+            setIsLoading(false);
+            barcodeInputRef.current?.focus();
+        }
+    }
+}, [selectedCompany, todaysScans, companies, playBeep, isLoading]);
 
-    } catch (err) {
-      playBeep(false);
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('فشل تسجيل المسح. يرجى المحاولة مرة أخرى.');
-      }
-      setLastResult(null);
-    } finally {
-      setBarcode('');
-      setIsLoading(false);
-      setTimeout(() => barcodeInputRef.current?.focus(), 0);
+
+  const handleScanFormSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    submitBarcode(barcode.trim());
+  };
+
+  const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const currentBarcode = e.target.value;
+    setBarcode(currentBarcode);
+
+    if (scanTimeoutRef.current) {
+        clearTimeout(scanTimeoutRef.current);
+    }
+
+    if (currentBarcode.trim().length > 3) { // Avoid firing on small inputs
+        scanTimeoutRef.current = window.setTimeout(() => {
+            submitBarcode(currentBarcode.trim());
+        }, 300); // 300ms delay to auto-submit after scanning
     }
   };
   
@@ -141,13 +189,15 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
     setError(null);
   }, []);
 
+  const totalCartons = todaysScans.reduce((total, scan) => total + scan.scan_count, 0);
+
   return (
     <div className="space-y-6">
       <ScanFeedback result={lastResult} error={error} onClear={clearFeedback} isVisible={!!lastResult || !!error} />
       
       <div className="bg-white p-4 rounded-lg shadow-md">
         <h2 className="text-xl font-bold text-gray-800 mb-4">مسح شحنة</h2>
-        <form onSubmit={handleScan} className="space-y-4">
+        <form onSubmit={handleScanFormSubmit} className="space-y-4">
           <div>
             <label htmlFor="company" className="block text-md font-medium text-gray-700 mb-1">
               شركة الشحن
@@ -174,34 +224,35 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
               type="text"
               id="barcode"
               value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
+              onChange={handleBarcodeChange}
               placeholder="جاهز للمسح..."
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 text-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
               disabled={isLoading}
+              autoComplete="off"
             />
           </div>
         </form>
       </div>
 
       <div className="bg-white p-4 rounded-lg shadow-md">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">عمليات المسح اليوم ({todaysScans.length})</h3>
+        <h3 className="text-xl font-bold text-gray-800 mb-4">عمليات المسح اليوم ({totalCartons})</h3>
         <div className="space-y-3 max-h-[50vh] overflow-y-auto no-scrollbar">
           {todaysScans.length === 0 ? (
              <div className="flex items-center justify-center h-24">
                 <p className="text-gray-500">لا توجد عمليات مسح لليوم بعد.</p>
             </div>
           ) : (
-            todaysScans.map((scan, index) => (
-              <div key={`${scan.id}-${index}`} className={`p-3 rounded-lg border-r-4 ${scan.is_duplicate ? 'bg-yellow-50 border-yellow-400' : 'bg-green-50 border-green-400'}`}>
+            todaysScans.map((scan) => (
+              <div key={`${scan.id}-${scan.scan_count}`} className={`p-3 rounded-lg border-r-4 ${scan.scan_count > 1 ? 'bg-yellow-50 border-yellow-400' : 'bg-green-50 border-green-400'}`}>
                 <div className="flex justify-between items-center">
                   <p className="text-md font-bold text-gray-900">{scan.barcode}</p>
                   <p className="text-sm text-gray-500">{scan.scan_time}</p>
                 </div>
                 <div className="flex justify-between items-center mt-1">
                   <p className="text-sm text-gray-600">{scan.company_name}</p>
-                   {scan.is_duplicate ? (
+                   {scan.scan_count > 1 ? (
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                        مكرر
+                        {scan.scan_count} كراتين
                       </span>
                     ) : (
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">

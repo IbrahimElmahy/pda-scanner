@@ -18,6 +18,7 @@ export interface Shipment {
 // Represents an item in the local list of scans on the ScanPage
 export interface ScanResult extends Shipment {
   scan_time: string; // HH:mm:ss
+  scan_count: number;
 }
 
 // Represents a shipment row in the statistics table
