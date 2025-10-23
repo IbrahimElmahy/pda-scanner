@@ -260,7 +260,7 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
           <div>
             <label htmlFor="company" className="block text-md font-medium text-gray-700 mb-1">شركة الشحن</label>
             <select id="company" value={selectedCompany} onChange={(e) => setSelectedCompany(e.target.value)} disabled={sessionState !== 'ready'} className="mt-1 block w-full p-3 text-lg border-gray-300 rounded-md disabled:bg-gray-200">
-              {companies.map((c) => ( <option key={c.id} value={c.id}>{c.alias ? `[${c.alias}] ` : ''}{c.name}</option>))}
+              {companies.map((c) => ( <option key={c.id} value={c.id}>{c.name}</option>))}
             </select>
           </div>
 

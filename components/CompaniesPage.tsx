@@ -6,7 +6,6 @@ const CompaniesPage: React.FC = () => {
     const [companies, setCompanies] = useState<ShippingCompany[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [newCompanyName, setNewCompanyName] = useState<string>('');
-    const [newCompanyAlias, setNewCompanyAlias] = useState<string>('');
     const [isAdding, setIsAdding] = useState<boolean>(false);
     const [togglingId, setTogglingId] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -34,9 +33,8 @@ const CompaniesPage: React.FC = () => {
         setIsAdding(true);
         setError(null);
         try {
-            await addCompany(newCompanyName, newCompanyAlias);
+            await addCompany(newCompanyName);
             setNewCompanyName('');
-            setNewCompanyAlias('');
             await loadCompanies(); // Refresh the list
         } catch (err) {
             if (err instanceof Error) {
@@ -82,18 +80,6 @@ const CompaniesPage: React.FC = () => {
                             className="mt-1 w-full p-3 text-lg form-input rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
                             disabled={isAdding}
                         />
-                    </div>
-                    <div>
-                        <label htmlFor="companyAlias" className="block text-sm font-medium text-gray-700">رمز الشركة (اختياري)</label>
-                        <input
-                            id="companyAlias"
-                            type="text"
-                            value={newCompanyAlias}
-                            onChange={(e) => setNewCompanyAlias(e.target.value)}
-                            placeholder="مثال: ARAMEX"
-                            className="mt-1 w-full p-3 text-lg form-input rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                            disabled={isAdding}
-                        />
                          {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
                     </div>
                     <button
@@ -114,7 +100,6 @@ const CompaniesPage: React.FC = () => {
                     <div key={company.id} className="bg-white p-4 rounded-lg shadow-md flex justify-between items-center">
                         <div>
                             <p className="font-bold text-gray-900 text-lg">
-                                {company.alias && <span className="text-primary-600 font-mono">[{company.alias}] </span>}
                                 {company.name}
                             </p>
                             {company.is_active ? (

@@ -26,7 +26,11 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
     throw new Error(`Network response was not ok: ${response.statusText} - ${errorText}`);
   }
   
-  const data = await response.json();
+  // Force UTF-8 decoding to fix issues with Arabic characters
+  const buffer = await response.arrayBuffer();
+  const decoder = new TextDecoder('utf-8');
+  const text = decoder.decode(buffer);
+  const data = JSON.parse(text);
 
   if (data.success === false) {
       throw new Error(data.message || 'An API error occurred');
@@ -78,10 +82,10 @@ export const fetchStats = async (filters: { date?: string; companyId?: number })
     };
 };
 
-export const addCompany = async (name: string, alias: string): Promise<ShippingCompany> => {
+export const addCompany = async (name: string): Promise<ShippingCompany> => {
     const response = await apiFetch('addCompany.php', {
         method: 'POST',
-        body: JSON.stringify({ name, alias }),
+        body: JSON.stringify({ name }),
     });
     return { ...response.company, is_active: response.company.is_active == 1 };
 };
