@@ -2,39 +2,12 @@ import React, { useState, useEffect, useRef, useCallback, FormEvent } from 'reac
 import { fetchCompanies, addShipment } from '../services/api';
 import { ShippingCompany, ScanResult, Page } from '../types';
 
-const ScanFeedback: React.FC<{ result: ScanResult | null; error: string | null; onClear: () => void; isVisible: boolean }> = ({ result, error, onClear, isVisible }) => {
-  useEffect(() => {
-    if (isVisible) {
-      const timer = setTimeout(onClear, 1500); // Shortened duration for faster feedback
-      return () => clearTimeout(timer);
-    }
-  }, [isVisible, onClear]);
-
-  const isDuplicate = result?.is_duplicate;
-  const title = error ? 'خطأ!' : isDuplicate ? 'مسح مكرر' : 'نجاح!';
-  const message = error || `تم مسح الباركود ${result?.barcode}.`;
-
-  return (
-    <div 
-      className={`fixed bottom-20 left-4 right-4 p-4 border-r-4 rounded-md shadow-lg z-50 transform transition-all duration-300 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'} ${error ? 'bg-red-50 border-red-400 text-red-800' : isDuplicate ? 'bg-yellow-50 border-yellow-400 text-yellow-800' : 'bg-green-50 border-green-400 text-green-800'}`} 
-      role="alert"
-      style={{ pointerEvents: isVisible ? 'auto' : 'none' }}
-    >
-      <p className="font-bold">{title}</p>
-      <p>{message}</p>
-    </div>
-  );
-};
-
-
 const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) => {
   const [companies, setCompanies] = useState<ShippingCompany[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string>('');
   const [barcode, setBarcode] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [todaysScans, setTodaysScans] = useState<ScanResult[]>([]);
-  const [lastResult, setLastResult] = useState<ScanResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -58,7 +31,7 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
     oscillator.connect(gainNode);
     gainNode.connect(context.destination);
 
-    gainNode.gain.value = 0.1; // Volume
+    gainNode.gain.value = 0.5; // Volume increased
     oscillator.type = 'sine';
 
     if (success) {
@@ -81,7 +54,7 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
           setSelectedCompany(String(activeCompanies[0].id));
         }
       } catch (err) {
-        setError('فشل تحميل شركات الشحن.');
+        console.error('فشل تحميل شركات الشحن.', err);
         playBeep(false);
       }
     };
@@ -108,7 +81,6 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
         clearTimeout(scanTimeoutRef.current);
     }
     if (!scannedBarcode || !selectedCompany) {
-        setError('يرجى اختيار شركة ومسح باركود.');
         playBeep(false);
         return;
     }
@@ -116,7 +88,6 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
     if (isLoading) return;
 
     setIsLoading(true);
-    setError(null);
     setBarcode(''); // Clear input immediately for next scan
 
     const scanTime = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -131,7 +102,6 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
             scan_count: existingScan.scan_count + 1,
             scan_time: scanTime,
         };
-        setLastResult({ ...updatedScanItem, is_duplicate: true });
         setTodaysScans([updatedScanItem, ...updatedScans]);
         
         // Log in background, then set loading to false to re-focus
@@ -150,19 +120,15 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
                 company_name: companyName,
                 scan_count: 1,
             };
-            setLastResult({ ...newScanResult, is_duplicate: false });
             setTodaysScans(prevScans => [newScanResult, ...prevScans]);
         } catch (err) {
             playBeep(false);
-            const errorMessage = err instanceof Error ? err.message : 'فشل تسجيل المسح. يرجى المحاولة مرة أخرى.';
-            setError(errorMessage);
-            setLastResult(null);
-            // Don't put barcode back, let user rescan. The input is already cleared.
+            console.error("Failed to add shipment:", err);
         } finally {
             setIsLoading(false);
         }
     }
-}, [selectedCompany, todaysScans, companies, playBeep, isLoading]);
+  }, [selectedCompany, todaysScans, companies, playBeep, isLoading]);
 
 
   const handleScanFormSubmit = async (e: FormEvent) => {
@@ -187,17 +153,10 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
     }
   };
   
-  const clearFeedback = useCallback(() => {
-    setLastResult(null);
-    setError(null);
-  }, []);
-
   const totalCartons = todaysScans.reduce((total, scan) => total + scan.scan_count, 0);
 
   return (
     <div className="space-y-6">
-      <ScanFeedback result={lastResult} error={error} onClear={clearFeedback} isVisible={!!lastResult || !!error} />
-      
       <div className="bg-white p-4 rounded-lg shadow-md">
         <h2 className="text-xl font-bold text-gray-800 mb-4">مسح شحنة</h2>
         <form onSubmit={handleScanFormSubmit} className="space-y-4">
