@@ -5,7 +5,7 @@ import { ShippingCompany, ScanResult, Page } from '../types';
 const ScanFeedback: React.FC<{ result: ScanResult | null; error: string | null; onClear: () => void; isVisible: boolean }> = ({ result, error, onClear, isVisible }) => {
   useEffect(() => {
     if (isVisible) {
-      const timer = setTimeout(onClear, 3000);
+      const timer = setTimeout(onClear, 1500); // Shortened duration for faster feedback
       return () => clearTimeout(timer);
     }
   }, [isVisible, onClear]);
@@ -91,6 +91,17 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
   useEffect(() => {
     barcodeInputRef.current?.focus();
   }, []);
+  
+  useEffect(() => {
+    // This effect ensures the barcode input is always focused when not loading.
+    // This is crucial for continuous scanning without manual clicks.
+    if (!isLoading) {
+      const timer = setTimeout(() => {
+        barcodeInputRef.current?.focus();
+      }, 50); // A small delay ensures the DOM is ready for focus after a re-render.
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
 
   const submitBarcode = useCallback(async (scannedBarcode: string) => {
     if (scanTimeoutRef.current) {
@@ -102,18 +113,16 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
         return;
     }
 
-    // Don't process if already loading
     if (isLoading) return;
 
     setIsLoading(true);
     setError(null);
-    setBarcode(''); // Clear input immediately
+    setBarcode(''); // Clear input immediately for next scan
 
     const scanTime = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const existingScanIndex = todaysScans.findIndex(scan => scan.barcode === scannedBarcode);
 
     if (existingScanIndex > -1) {
-        // DUPLICATE SCAN (CARTON) - Update UI immediately
         playBeep(true);
         const updatedScans = [...todaysScans];
         const existingScan = updatedScans.splice(existingScanIndex, 1)[0];
@@ -125,16 +134,12 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
         setLastResult({ ...updatedScanItem, is_duplicate: true });
         setTodaysScans([updatedScanItem, ...updatedScans]);
         
-        // Call API in the background to log the scan for stats
-        addShipment(scannedBarcode, Number(selectedCompany)).catch(err => {
-            console.error("Failed to log duplicate scan:", err);
-            // Optionally show a non-blocking error
-        }).finally(() => {
-            setIsLoading(false);
-            barcodeInputRef.current?.focus();
-        });
+        // Log in background, then set loading to false to re-focus
+        addShipment(scannedBarcode, Number(selectedCompany))
+            .catch(err => console.error("Failed to log duplicate scan:", err))
+            .finally(() => setIsLoading(false));
+
     } else {
-        // NEW SCAN
         try {
             const result = await addShipment(scannedBarcode, Number(selectedCompany));
             playBeep(true);
@@ -149,16 +154,12 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
             setTodaysScans(prevScans => [newScanResult, ...prevScans]);
         } catch (err) {
             playBeep(false);
-            if (err instanceof Error) {
-                setError(err.message);
-            } else {
-                setError('فشل تسجيل المسح. يرجى المحاولة مرة أخرى.');
-            }
+            const errorMessage = err instanceof Error ? err.message : 'فشل تسجيل المسح. يرجى المحاولة مرة أخرى.';
+            setError(errorMessage);
             setLastResult(null);
-            setBarcode(scannedBarcode); // Put barcode back on error
+            // Don't put barcode back, let user rescan. The input is already cleared.
         } finally {
             setIsLoading(false);
-            barcodeInputRef.current?.focus();
         }
     }
 }, [selectedCompany, todaysScans, companies, playBeep, isLoading]);
@@ -166,7 +167,9 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
 
   const handleScanFormSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    submitBarcode(barcode.trim());
+    if(barcode.trim()){
+      submitBarcode(barcode.trim());
+    }
   };
 
   const handleBarcodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -177,10 +180,10 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
         clearTimeout(scanTimeoutRef.current);
     }
 
-    if (currentBarcode.trim().length > 3) { // Avoid firing on small inputs
+    if (currentBarcode.trim().length > 3) { 
         scanTimeoutRef.current = window.setTimeout(() => {
             submitBarcode(currentBarcode.trim());
-        }, 300); // 300ms delay to auto-submit after scanning
+        }, 300); 
     }
   };
   
