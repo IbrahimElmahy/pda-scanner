@@ -1,6 +1,7 @@
 export interface ShippingCompany {
   id: number;
   name: string;
+  alias?: string;
   is_active: boolean | number; // API might return 1/0
 }
 

@@ -78,10 +78,10 @@ export const fetchStats = async (filters: { date?: string; companyId?: number })
     };
 };
 
-export const addCompany = async (name: string): Promise<ShippingCompany> => {
+export const addCompany = async (name: string, alias: string): Promise<ShippingCompany> => {
     const response = await apiFetch('addCompany.php', {
         method: 'POST',
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, alias }),
     });
     return { ...response.company, is_active: response.company.is_active == 1 };
 };

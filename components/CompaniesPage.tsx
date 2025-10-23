@@ -6,6 +6,7 @@ const CompaniesPage: React.FC = () => {
     const [companies, setCompanies] = useState<ShippingCompany[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [newCompanyName, setNewCompanyName] = useState<string>('');
+    const [newCompanyAlias, setNewCompanyAlias] = useState<string>('');
     const [isAdding, setIsAdding] = useState<boolean>(false);
     const [togglingId, setTogglingId] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -33,8 +34,9 @@ const CompaniesPage: React.FC = () => {
         setIsAdding(true);
         setError(null);
         try {
-            await addCompany(newCompanyName);
+            await addCompany(newCompanyName, newCompanyAlias);
             setNewCompanyName('');
+            setNewCompanyAlias('');
             await loadCompanies(); // Refresh the list
         } catch (err) {
             if (err instanceof Error) {
@@ -67,7 +69,9 @@ const CompaniesPage: React.FC = () => {
                 <h3 className="text-xl font-semibold mb-4">إضافة شركة جديدة</h3>
                 <form onSubmit={handleAddCompany} className="flex flex-col gap-4">
                     <div>
+                        <label htmlFor="companyName" className="block text-sm font-medium text-gray-700">اسم الشركة</label>
                         <input
+                            id="companyName"
                             type="text"
                             value={newCompanyName}
                             onChange={(e) => {
@@ -75,7 +79,19 @@ const CompaniesPage: React.FC = () => {
                                 setError(null); // Clear error on new input
                             }}
                             placeholder="أدخل اسم الشركة الجديدة"
-                            className="w-full p-3 text-lg form-input rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            className="mt-1 w-full p-3 text-lg form-input rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                            disabled={isAdding}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="companyAlias" className="block text-sm font-medium text-gray-700">رمز الشركة (اختياري)</label>
+                        <input
+                            id="companyAlias"
+                            type="text"
+                            value={newCompanyAlias}
+                            onChange={(e) => setNewCompanyAlias(e.target.value)}
+                            placeholder="مثال: ARAMEX"
+                            className="mt-1 w-full p-3 text-lg form-input rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
                             disabled={isAdding}
                         />
                          {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
@@ -97,7 +113,10 @@ const CompaniesPage: React.FC = () => {
                 ) : companies.map(company => (
                     <div key={company.id} className="bg-white p-4 rounded-lg shadow-md flex justify-between items-center">
                         <div>
-                            <p className="font-bold text-gray-900 text-lg">{company.name}</p>
+                            <p className="font-bold text-gray-900 text-lg">
+                                {company.alias && <span className="text-primary-600 font-mono">[{company.alias}] </span>}
+                                {company.name}
+                            </p>
                             {company.is_active ? (
                                 <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">نشط</span>
                             ) : (
