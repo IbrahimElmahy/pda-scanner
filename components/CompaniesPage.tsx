@@ -12,6 +12,7 @@ const CompaniesPage: React.FC = () => {
 
     const loadCompanies = useCallback(async () => {
         setIsLoading(true);
+        setError(null); // Clear errors on reload
         try {
             const data = await fetchCompanies();
             setCompanies(data);
@@ -28,20 +29,25 @@ const CompaniesPage: React.FC = () => {
 
     const handleAddCompany = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newCompanyName.trim()) return;
+        const trimmedName = newCompanyName.trim();
+        if (!trimmedName) return;
         
         setIsAdding(true);
         setError(null);
+
+        // Optimistic update with a temporary ID
+        const tempId = -Date.now();
+        const newTempCompany: ShippingCompany = { id: tempId, name: trimmedName, is_active: true };
+        setCompanies(prev => [newTempCompany, ...prev]);
+        setNewCompanyName('');
+
         try {
-            await addCompany(newCompanyName);
-            setNewCompanyName('');
-            await loadCompanies(); // Refresh the list
+            const addedCompany = await addCompany(trimmedName);
+            // On success, replace the temporary company with the real one from the API
+            setCompanies(prev => prev.map(c => (c.id === tempId ? { ...addedCompany, is_active: !!addedCompany.is_active } : c)));
         } catch (err) {
-            if (err instanceof Error) {
-                setError(err.message || "حدث خطأ أثناء إضافة الشركة.");
-            } else {
-                setError("حدث خطأ غير معروف أثناء إضافة الشركة.");
-            }
+            const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+            setError(`فشل الحفظ على السيرفر: ${errorMessage}. تم الحفظ محلياً.`);
         } finally {
             setIsAdding(false);
         }
@@ -49,11 +55,20 @@ const CompaniesPage: React.FC = () => {
     
     const handleToggleStatus = async (company: ShippingCompany) => {
         setTogglingId(company.id);
+        setError(null);
+        
+        // Optimistic update
+        setCompanies(prev =>
+            prev.map(c =>
+                c.id === company.id ? { ...c, is_active: !c.is_active } : c
+            )
+        );
+
         try {
             await toggleCompanyStatus(company.id, !company.is_active);
-            await loadCompanies(); // Refresh list
         } catch(err) {
-            setError("فشل تحديث حالة الشركة.");
+            setError("فشل تحديث حالة الشركة على السيرفر. تم التحديث محلياً.");
+            // On failure, we don't revert the change to match the legacy app's behavior
         } finally {
             setTogglingId(null);
         }
@@ -62,6 +77,13 @@ const CompaniesPage: React.FC = () => {
     return (
         <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-800">إدارة شركات الشحن</h2>
+
+            {error && (
+                <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
+                    <p className="font-bold">تنبيه</p>
+                    <p>{error}</p>
+                </div>
+            )}
 
             <div className="bg-white p-4 rounded-lg shadow-md">
                 <h3 className="text-xl font-semibold mb-4">إضافة شركة جديدة</h3>
@@ -72,15 +94,11 @@ const CompaniesPage: React.FC = () => {
                             id="companyName"
                             type="text"
                             value={newCompanyName}
-                            onChange={(e) => {
-                                setNewCompanyName(e.target.value);
-                                setError(null); // Clear error on new input
-                            }}
+                            onChange={(e) => setNewCompanyName(e.target.value)}
                             placeholder="أدخل اسم الشركة الجديدة"
                             className="mt-1 w-full p-3 text-lg form-input rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
                             disabled={isAdding}
                         />
-                         {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
                     </div>
                     <button
                         type="submit"
