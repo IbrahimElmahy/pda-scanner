@@ -76,9 +76,11 @@ export const fetchStats = async (filters: { date?: string; companyId?: number })
         params.append('company_id', String(filters.companyId));
     }
     const data = await apiFetch(`getStats.php?${params.toString()}`);
+    
+    // Provide default values to prevent crashes on malformed API responses
     return {
-        statistics: data.statistics,
-        shipments: data.shipments,
+        statistics: data.statistics ?? { total_unique_shipments: 0, total_scans: 0, duplicate_count: 0 },
+        shipments: data.shipments ?? [],
     };
 };
 
