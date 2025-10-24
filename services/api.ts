@@ -1,84 +1,49 @@
 import { ShippingCompany, Shipment, StatsData } from '../types';
 
-const API_BASE_URL = 'https://zabda-al-tajamil.com/shipment_tracking/api';
-const API_USERNAME = 'admin';
-const API_PASSWORD = '1234';
+// ✅ المسار الجديد النهائي
+const API_BASE_URL = 'https://zabda-al-tajamil.com/api_working';
 
-// Fallback data for when API is not available
-const FALLBACK_COMPANIES: ShippingCompany[] = [
-    { id: 1, name: 'شركة الشحن الأولى', is_active: true },
-    { id: 2, name: 'شركة الشحن الثانية', is_active: true },
-    { id: 3, name: 'شركة الشحن الثالثة', is_active: false }
-];
-
-const FALLBACK_STATS: StatsData = {
-    statistics: {
-        total_unique_shipments: 0,
-        total_scans: 0,
-        duplicate_count: 0,
-    },
-    shipments: [],
-};
-
-
-// A helper function to handle API requests
 async function apiFetch(endpoint: string, options: RequestInit = {}) {
-  const url = `${API_BASE_URL}/${endpoint}`;
+  const url = ${API_BASE_URL}/${endpoint};
   
-  const defaultHeaders = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'Authorization': 'Basic ' + btoa(`${API_USERNAME}:${API_PASSWORD}`),
-  };
-
   const config: RequestInit = {
     ...options,
     headers: {
-      ...defaultHeaders,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
       ...options.headers,
     },
   };
 
   const response = await fetch(url, config);
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Network response was not ok: ${response.statusText} - ${errorText}`);
-  }
+  const text = await response.text();
   
-  // Force UTF-8 decoding to fix issues with Arabic characters
-  const buffer = await response.arrayBuffer();
-  const decoder = new TextDecoder('utf-8');
-  const text = decoder.decode(buffer);
-  const data = JSON.parse(text);
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    throw new Error(Invalid JSON response: ${text.substring(0, 100)});
+  }
 
   if (data.success === false) {
-      throw new Error(data.message || 'An API error occurred');
+    throw new Error(data.error || 'API error occurred');
   }
 
   return data;
 }
 
-
 export const fetchCompanies = async (activeOnly = false): Promise<ShippingCompany[]> => {
-  try {
-    const data = await apiFetch('getCompanies.php');
-    let companies: ShippingCompany[] = data.companies.map((c: any) => ({
-        ...c,
-        is_active: c.is_active == 1,
-    }));
-    if (activeOnly) {
-      return companies.filter(c => c.is_active);
-    }
-    return companies;
-  } catch (error) {
-    console.warn('API call for fetchCompanies failed, using fallback data.', error);
-    let companies = FALLBACK_COMPANIES;
-    if (activeOnly) {
-        return companies.filter(c => !!c.is_active);
-    }
-    return companies;
+  const response = await apiFetch('getCompanies.php');
+  let companies: ShippingCompany[] = (response.companies || []).map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      is_active: c.is_active == 1 || c.is_active === true,
+  }));
+  
+  if (activeOnly) {
+    return companies.filter(c => c.is_active);
   }
+  return companies;
 };
 
 export const addShipment = async (barcode: string, company_id: number): Promise<Shipment> => {
@@ -91,31 +56,44 @@ export const addShipment = async (barcode: string, company_id: number): Promise<
             scan_date: today,
         }),
     });
-    // The component expects `is_duplicate`. The API docs for addShipment don't provide it.
-    // We pass the raw shipment object; the component should handle a potentially missing `is_duplicate`.
-    return { ...response.shipment, date: response.shipment.scan_date };
+    
+    const shipmentData = response.shipment;
+    
+    return { 
+        id: shipmentData.id,
+        barcode: shipmentData.barcode,
+        company_id: shipmentData.company_id,
+        company_name: shipmentData.company_name,
+        scan_date: shipmentData.scan_date,
+        date: shipmentData.scan_date,
+    };
 };
 
 export const fetchStats = async (filters: { date?: string; companyId?: number }): Promise<StatsData> => {
-    try {
-        const params = new URLSearchParams();
-        if (filters.date) {
-            params.append('date', filters.date);
-        }
-        if (filters.companyId) {
-            params.append('company_id', String(filters.companyId));
-        }
-        const data = await apiFetch(`getStats.php?${params.toString()}`);
-        
-        // Provide default values to prevent crashes on malformed API responses
-        return {
-            statistics: data.statistics ?? { total_unique_shipments: 0, total_scans: 0, duplicate_count: 0 },
-            shipments: data.shipments ?? [],
-        };
-    } catch (error) {
-        console.warn('API call for fetchStats failed, using fallback data.', error);
-        return FALLBACK_STATS;
+    const params = new URLSearchParams();
+    if (filters.date) {
+        params.append('date', filters.date);
     }
+    if (filters.companyId) {
+        params.append('company_id', String(filters.companyId));
+    }
+    
+    const response = await apiFetch(getStats.php?${params.toString()});
+    
+    return {
+        statistics: {
+            total_unique_shipments: response.statistics?.total_unique_shipments || 0,
+            total_scans: response.statistics?.total_scans || 0,
+            duplicate_count: response.statistics?.duplicate_count || 0,
+        },
+        shipments: (response.shipments || []).map((s: any) => ({
+            barcode: s.barcode,
+            company_name: s.company_name,
+            scan_count: s.scan_count,
+            first_scan: s.first_scan,
+            last_scan: s.last_scan,
+        })),
+    };
 };
 
 export const addCompany = async (name: string): Promise<ShippingCompany> => {
@@ -123,12 +101,21 @@ export const addCompany = async (name: string): Promise<ShippingCompany> => {
         method: 'POST',
         body: JSON.stringify({ name }),
     });
-    return { ...response.company, is_active: response.company.is_active == 1 };
+    
+    const companyData = response.company;
+    
+    return { 
+        id: companyData.id,
+        name: companyData.name,
+        is_active: companyData.is_active == 1 || companyData.is_active === true,
+    };
 };
 
-export const toggleCompanyStatus = async (company_id: number, is_active: boolean): Promise<any> => {
-    return apiFetch('toggleCompany.php', {
+export const toggleCompanyStatus = async (company_id: number): Promise<any> => {
+    const response = await apiFetch('toggleCompany.php', {
         method: 'POST',
-        body: JSON.stringify({ company_id, is_active }),
+        body: JSON.stringify({ company_id }),
     });
+    
+    return response;
 };

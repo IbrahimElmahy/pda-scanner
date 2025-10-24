@@ -65,7 +65,8 @@ const CompaniesPage: React.FC = () => {
         );
 
         try {
-            await toggleCompanyStatus(company.id, !company.is_active);
+            // FIX: The toggleCompanyStatus function from the API service only expects one argument (the company ID).
+            await toggleCompanyStatus(company.id);
         } catch(err) {
             setError("فشل تحديث حالة الشركة على السيرفر. تم التحديث محلياً.");
             // On failure, we don't revert the change to match the legacy app's behavior

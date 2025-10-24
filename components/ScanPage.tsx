@@ -24,16 +24,15 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
   const scanTimeoutRef = useRef<number | null>(null);
 
   const playBeep = useCallback((success: boolean) => {
-    if (!audioContextRef.current) {
-      try {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      } catch (e) {
-        console.error("Web Audio API is not supported in this browser.");
-        return;
-      }
-    }
     const context = audioContextRef.current;
-    if (!context) return;
+    if (!context) {
+      console.warn(`Beep (${success ? 'success' : 'failure'}) suppressed: AudioContext not initialized.`);
+      return;
+    }
+    
+    if (context.state === 'suspended') {
+      context.resume();
+    }
 
     const oscillator = context.createOscillator();
     const gainNode = context.createGain();
@@ -113,6 +112,13 @@ const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) =>
   };
 
   const handleStartSession = () => {
+    if (!audioContextRef.current) {
+        try {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        } catch (e) {
+            console.error("Web Audio API is not supported in this browser.");
+        }
+    }
     if (selectedCompany) setSessionState('scanning');
   };
 

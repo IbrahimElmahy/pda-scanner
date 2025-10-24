@@ -33,9 +33,9 @@ export interface ShipmentStat {
 // Represents the full data structure from getStats.php
 export interface StatsData {
     statistics: {
-        total_unique_shipments: number;
-        total_scans: number;
-        duplicate_count: number;
+        totalUniqueShipments: number;
+        totalScans: number;
+        duplicateCount: number;
     };
     shipments: ShipmentStat[];
 }
