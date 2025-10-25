@@ -41,6 +41,12 @@
 </head>
   <body class="bg-gray-100">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    
+    <!-- Add Babel to transpile JSX and TypeScript in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/preset-typescript/standalone.js"></script>
+    
+    <!-- Change script type and add presets for Babel to process TSX files -->
+    <script type="text/babel" data-presets="react,typescript" data-type="module" src="index.tsx"></script>
   </body>
 </html>

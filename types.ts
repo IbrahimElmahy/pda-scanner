@@ -40,10 +40,15 @@ export interface StatsData {
     shipments: ShipmentStat[];
 }
 
+export interface User {
+  id: number;
+  username: string;
+}
 
 export enum Page {
   SCAN = 'scan',
   STATS = 'stats',
   REPORTS = 'reports',
   COMPANIES = 'companies',
+  PROFILE = 'profile',
 }

@@ -1,4 +1,4 @@
-import { ShippingCompany, Shipment, StatsData } from '../types';
+import { ShippingCompany, Shipment, StatsData, User } from '../types';
 
 // ✅ المسار الجديد النهائي
 const API_BASE_URL = 'https://zabda-al-tajamil.com/api_working';
@@ -31,6 +31,40 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
 
   return data;
 }
+
+// MOCK AUTHENTICATION
+export const login = async (username: string, password: string): Promise<User> => {
+    console.log(`Attempting login for user: ${username}`);
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            // Simulate network delay
+            if (username.toLowerCase() === 'admin' && password === '123456') {
+                const user: User = { id: 1, username: 'admin' };
+                console.log('Login successful');
+                resolve(user);
+            } else {
+                console.log('Login failed: Invalid credentials');
+                reject(new Error('اسم المستخدم أو كلمة المرور غير صحيحة'));
+            }
+        }, 1000); // 1 second delay
+    });
+};
+
+export const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+    console.log('Attempting to change password');
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+             // In a real app, you'd verify the currentPassword
+            if (currentPassword === '123456') {
+                console.log('Password change successful');
+                resolve({ success: true, message: 'تم تغيير كلمة المرور بنجاح.' });
+            } else {
+                 console.log('Password change failed: Incorrect current password');
+                reject(new Error('كلمة المرور الحالية غير صحيحة.'));
+            }
+        }, 1000);
+    });
+};
 
 export const fetchCompanies = async (activeOnly = false): Promise<ShippingCompany[]> => {
   const response = await apiFetch('getCompanies.php');
