@@ -48,11 +48,13 @@ async function apiFetch(endpoint, options = {}) {
   return data;
 }
 
+let mockUserPassword = '123456';
+
 const login = async (username, password) => {
     console.log(`Attempting login for user: ${username}`);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            if (username.toLowerCase() === 'admin' && password === '123456') {
+            if (username.toLowerCase() === 'admin' && password === mockUserPassword) {
                 const user = { id: 1, username: 'admin' };
                 console.log('Login successful');
                 resolve(user);
@@ -68,7 +70,8 @@ const changePassword = async (currentPassword, newPassword) => {
     console.log('Attempting to change password');
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            if (currentPassword === '123456') {
+            if (currentPassword === mockUserPassword) {
+                mockUserPassword = newPassword;
                 console.log('Password change successful');
                 resolve({ success: true, message: 'تم تغيير كلمة المرور بنجاح.' });
             } else {

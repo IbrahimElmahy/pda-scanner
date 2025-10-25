@@ -33,12 +33,14 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
 }
 
 // MOCK AUTHENTICATION
+let mockUserPassword = '123456';
+
 export const login = async (username: string, password: string): Promise<User> => {
     console.log(`Attempting login for user: ${username}`);
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             // Simulate network delay
-            if (username.toLowerCase() === 'admin' && password === '123456') {
+            if (username.toLowerCase() === 'admin' && password === mockUserPassword) {
                 const user: User = { id: 1, username: 'admin' };
                 console.log('Login successful');
                 resolve(user);
@@ -50,12 +52,13 @@ export const login = async (username: string, password: string): Promise<User> =
     });
 };
 
-export const changePassword = async (currentPassword: string, _newPassword: string): Promise<{ success: boolean; message: string }> => {
+export const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
     console.log('Attempting to change password');
     return new Promise((resolve, reject) => {
         setTimeout(() => {
              // In a real app, you'd verify the currentPassword
-            if (currentPassword === '123456') {
+            if (currentPassword === mockUserPassword) {
+                mockUserPassword = newPassword;
                 console.log('Password change successful');
                 resolve({ success: true, message: 'تم تغيير كلمة المرور بنجاح.' });
             } else {
