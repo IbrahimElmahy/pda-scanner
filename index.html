@@ -1,10 +1,15 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>ماسح الباركود</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script>
       tailwind.config = {
         theme: {
@@ -16,37 +21,33 @@
         }
       }
     </script>
-  <script type="importmap">
+    <style>
+      /* Hide scrollbar for Chrome, Safari and Opera */
+      body::-webkit-scrollbar,
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      /* Hide scrollbar for IE, Edge and Firefox */
+      body,
+      .no-scrollbar {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+      }
+    </style>
+<script type="importmap">
 {
   "imports": {
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "vite": "https://aistudiocdn.com/vite@^7.1.12",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.0"
   }
 }
 </script>
-<style>
-  /* Hide scrollbar for Chrome, Safari and Opera */
-  body::-webkit-scrollbar,
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  /* Hide scrollbar for IE, Edge and Firefox */
-  body,
-  .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-  }
-</style>
 </head>
-  <body class="bg-gray-100">
+<body class="bg-gray-100">
     <div id="root"></div>
-    
-    <!-- Add Babel to transpile JSX and TypeScript in the browser -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/@babel/preset-typescript/standalone.js"></script>
-    
-    <!-- Change script type and add presets for Babel to process TSX files -->
-    <script type="text/babel" data-presets="react,typescript" data-type="module" src="index.tsx"></script>
-  </body>
+    <script type="text/babel" data-presets="react,typescript" src="index.tsx"></script>
+</body>
 </html>
