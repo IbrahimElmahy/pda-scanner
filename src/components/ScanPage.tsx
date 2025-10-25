@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchCompanies, addShipment } from '../services/api';
-import { ShippingCompany, ScanResult, Page } from '../types';
+import { ShippingCompany, ScanResult } from '../types';
 
 type SessionState = 'ready' | 'scanning' | 'review' | 'saving' | 'summary';
 
@@ -11,7 +11,7 @@ interface SummaryData {
   scans: ScanResult[];
 }
 
-const ScanPage: React.FC<{ navigate: (page: Page) => void }> = ({ navigate }) => {
+const ScanPage: React.FC = () => {
   const [companies, setCompanies] = useState<ShippingCompany[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string>('');
   const [barcode, setBarcode] = useState<string>('');

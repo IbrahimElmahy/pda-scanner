@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchStats, fetchCompanies } from '../services/api';
-import { ShipmentStat, ShippingCompany, StatsData } from '../types';
+import { ShippingCompany, StatsData } from '../types';
 
 const StatsCard: React.FC<{ title: string; value: number | string; icon: React.ReactNode }> = ({ title, value, icon }) => (
     <div className="bg-white p-4 rounded-lg shadow-md flex items-center">

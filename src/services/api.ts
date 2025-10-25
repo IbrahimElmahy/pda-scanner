@@ -50,7 +50,7 @@ export const login = async (username: string, password: string): Promise<User> =
     });
 };
 
-export const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+export const changePassword = async (currentPassword: string, _newPassword: string): Promise<{ success: boolean; message: string }> => {
     console.log('Attempting to change password');
     return new Promise((resolve, reject) => {
         setTimeout(() => {

@@ -48,7 +48,8 @@ const App: React.FC = () => {
 
     switch (currentPage) {
       case Page.SCAN:
-        return <ScanPage navigate={navigate} />;
+        // Fix: Removed unused `navigate` prop to match the ScanPage component's definition.
+        return <ScanPage />;
       case Page.STATS:
         return <StatsPage />;
       case Page.REPORTS:
@@ -58,7 +59,8 @@ const App: React.FC = () => {
       case Page.PROFILE:
         return <ProfilePage user={user} onLogout={handleLogout} />;
       default:
-        return <ScanPage navigate={navigate} />;
+        // Fix: Removed unused `navigate` prop to match the ScanPage component's definition.
+        return <ScanPage />;
     }
   };
   

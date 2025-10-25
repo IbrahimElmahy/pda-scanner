@@ -345,7 +345,7 @@ const ProfilePage = ({ user, onLogout }) => {
       setNewPassword('');
       setConfirmPassword('');
     } catch (err) {
-      // Fix: Rewrite catch block to safely handle 'unknown' type of error object.
+      // Fix: Add type guard to safely handle the 'unknown' type of the error object in a catch block.
       if (err instanceof Error) {
         setMessage({ type: 'error', text: err.message });
       } else {
