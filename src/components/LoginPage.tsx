@@ -59,7 +59,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-3 py-2 mt-1 placeholder-gray-500 border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-              placeholder="admin"
             />
           </div>
           <div>
@@ -75,7 +74,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 mt-1 placeholder-gray-500 border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-               placeholder="123456"
             />
           </div>
           <div>
