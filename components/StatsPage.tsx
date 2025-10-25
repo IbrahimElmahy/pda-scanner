@@ -30,7 +30,8 @@ const StatsPage: React.FC = () => {
         try {
             const [fetchedStats, fetchedCompanies] = await Promise.all([
                 fetchStats({
-                    date: filters.date,
+                    startDate: filters.date,
+                    endDate: filters.date,
                     companyId: filters.companyId > 0 ? filters.companyId : undefined,
                 }),
                 fetchCompanies(),

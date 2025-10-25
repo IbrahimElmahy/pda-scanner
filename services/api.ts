@@ -4,7 +4,7 @@ import { ShippingCompany, Shipment, StatsData } from '../types';
 const API_BASE_URL = 'https://zabda-al-tajamil.com/api_working';
 
 async function apiFetch(endpoint: string, options: RequestInit = {}) {
-  const url = ${API_BASE_URL}/${endpoint};
+  const url = `${API_BASE_URL}/${endpoint}`;
   
   const config: RequestInit = {
     ...options,
@@ -22,7 +22,7 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
   try {
     data = JSON.parse(text);
   } catch (e) {
-    throw new Error(Invalid JSON response: ${text.substring(0, 100)});
+    throw new Error(`Invalid JSON response: ${text.substring(0, 100)}`);
   }
 
   if (data.success === false) {
@@ -69,22 +69,25 @@ export const addShipment = async (barcode: string, company_id: number): Promise<
     };
 };
 
-export const fetchStats = async (filters: { date?: string; companyId?: number }): Promise<StatsData> => {
+export const fetchStats = async (filters: { startDate?: string; endDate?: string; companyId?: number }): Promise<StatsData> => {
     const params = new URLSearchParams();
-    if (filters.date) {
-        params.append('date', filters.date);
+    if (filters.startDate) {
+        params.append('start_date', filters.startDate);
+    }
+    if (filters.endDate) {
+        params.append('end_date', filters.endDate);
     }
     if (filters.companyId) {
         params.append('company_id', String(filters.companyId));
     }
     
-    const response = await apiFetch(getStats.php?${params.toString()});
+    const response = await apiFetch(`getStats.php?${params.toString()}`);
     
     return {
         statistics: {
-            total_unique_shipments: response.statistics?.total_unique_shipments || 0,
-            total_scans: response.statistics?.total_scans || 0,
-            duplicate_count: response.statistics?.duplicate_count || 0,
+            totalUniqueShipments: response.statistics?.total_unique_shipments || 0,
+            totalScans: response.statistics?.total_scans || 0,
+            duplicateCount: response.statistics?.duplicate_count || 0,
         },
         shipments: (response.shipments || []).map((s: any) => ({
             barcode: s.barcode,

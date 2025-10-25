@@ -44,5 +44,6 @@ export interface StatsData {
 export enum Page {
   SCAN = 'scan',
   STATS = 'stats',
+  REPORTS = 'reports',
   COMPANIES = 'companies',
 }
